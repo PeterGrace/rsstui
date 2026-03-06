@@ -1,0 +1,28 @@
+app-id: dev.gfd.rsstui
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: rsstui
+
+finish-args:
+  - --share=network
+  - --device=all
+
+modules:
+  - name: rsstui
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/rsstui/cargo
+        RUSTFLAGS: "-C target-feature=-crt-static"
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --release --manifest-path Cargo.toml
+      - install -Dm755 target/release/rsstui /app/bin/rsstui
+    sources:
+      - type: dir
+        path: .
+      - cargo-sources.json
