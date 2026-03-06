@@ -42,6 +42,12 @@ const UNREAD_COLOR: Color = Color::Green;
 const ERROR_COLOR: Color = Color::Red;
 /// Colour used for "loading…" indicators.
 const LOADING_COLOR: Color = Color::Yellow;
+/// Style for unread items: bright white + bold so they stand out clearly.
+const UNREAD_STYLE: Style = Style::new()
+    .fg(Color::White)
+    .add_modifier(Modifier::BOLD);
+/// Style for read items: dark gray so they visually recede.
+const READ_STYLE: Style = Style::new().fg(Color::DarkGray);
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -152,11 +158,7 @@ fn render_feeds_pane(app: &mut App, frame: &mut Frame<'_>, area: Rect) {
                 Span::raw("")
             };
 
-            let title_style = if unread > 0 {
-                Style::default().add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::Gray)
-            };
+            let title_style = if unread > 0 { UNREAD_STYLE } else { READ_STYLE };
 
             ListItem::new(Line::from(vec![
                 Span::styled(feed.title.clone(), title_style),
@@ -228,11 +230,7 @@ fn render_articles_pane(app: &mut App, frame: &mut Frame<'_>, area: Rect) {
                 .map(|dt| dt.format("%Y-%m-%d").to_string())
                 .unwrap_or_default();
 
-            let title_style = if article.read {
-                Style::default().fg(Color::Gray)
-            } else {
-                Style::default().add_modifier(Modifier::BOLD)
-            };
+            let title_style = if article.read { READ_STYLE } else { UNREAD_STYLE };
 
             let read_marker = if article.read { "  " } else { "* " };
 
@@ -251,7 +249,8 @@ fn render_articles_pane(app: &mut App, frame: &mut Frame<'_>, area: Rect) {
         .block(block)
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(Color::Blue)
+                .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -261,7 +260,7 @@ fn render_articles_pane(app: &mut App, frame: &mut Frame<'_>, area: Rect) {
 
 // ── Preview pane ──────────────────────────────────────────────────────────────
 
-fn render_preview_pane(app: &App, frame: &mut Frame<'_>, area: Rect) {
+fn render_preview_pane(app: &mut App, frame: &mut Frame<'_>, area: Rect) {
     let is_active = app.active_pane == ActivePane::Preview;
     let border_color = if is_active { ACTIVE_BORDER } else { INACTIVE_BORDER };
 
@@ -309,8 +308,33 @@ fn render_preview_pane(app: &App, frame: &mut Frame<'_>, area: Rect) {
     md.push_str("---\n\n");
     md.push_str(&article.summary);
 
+    let text = crate::markdown::render_markdown(&md);
+
+    // Compute wrapped line count so the scroll handler can clamp correctly.
+    // The inner width is the area minus the two border columns.
+    let inner_width = area.width.saturating_sub(2) as usize;
+    if inner_width > 0 {
+        // Each `Line` may wrap across multiple terminal rows.
+        let total: u16 = text
+            .lines
+            .iter()
+            .map(|line| {
+                let w = line.width();
+                if w == 0 {
+                    1u16
+                } else {
+                    // ceiling division: how many rows does this line occupy?
+                    w.div_ceil(inner_width) as u16
+                }
+            })
+            .sum();
+        app.preview_content_lines = total;
+    }
+    // Inner height (rows visible inside the border).
+    app.preview_area_height = area.height.saturating_sub(2);
+
     frame.render_widget(
-        Paragraph::new(crate::markdown::render_markdown(&md))
+        Paragraph::new(text)
             .block(block)
             .wrap(Wrap { trim: false })
             .scroll((app.preview_scroll, 0)),

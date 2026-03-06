@@ -132,6 +132,10 @@ pub struct App {
     // ── Preview pane ──────────────────────────────────────────────────────────
     /// Vertical scroll offset (in rows) for the preview paragraph.
     pub preview_scroll: u16,
+    /// Total wrapped line count of the current preview content (set each render).
+    pub preview_content_lines: u16,
+    /// Visible height of the preview pane in rows (set each render).
+    pub preview_area_height: u16,
 
     // ── Add-feed modal ────────────────────────────────────────────────────────
     /// Text typed so far in the add-feed dialog.
@@ -155,6 +159,14 @@ pub struct App {
 }
 
 impl App {
+    /// Returns the maximum valid scroll offset for the preview pane.
+    ///
+    /// Prevents scrolling past the last line of content.
+    fn preview_max_scroll(&self) -> u16 {
+        self.preview_content_lines
+            .saturating_sub(self.preview_area_height)
+    }
+
     /// Creates a new `App`, loading any existing feed subscriptions from disk.
     ///
     /// # Errors
@@ -193,6 +205,8 @@ impl App {
             selected_article: 0,
             article_list_state,
             preview_scroll: 0,
+            preview_content_lines: 0,
+            preview_area_height: 0,
             input_buffer: String::new(),
             input_cursor: 0,
             status: None,
@@ -373,18 +387,26 @@ impl App {
 
             // Pane focus cycling
             KeyCode::Tab => {
-                self.active_pane = match self.active_pane {
+                let next = match self.active_pane {
                     ActivePane::Feeds => ActivePane::Articles,
                     ActivePane::Articles => ActivePane::Preview,
                     ActivePane::Preview => ActivePane::Feeds,
                 };
+                if next == ActivePane::Preview {
+                    self.mark_read(true);
+                }
+                self.active_pane = next;
             }
             KeyCode::BackTab => {
-                self.active_pane = match self.active_pane {
+                let next = match self.active_pane {
                     ActivePane::Feeds => ActivePane::Preview,
                     ActivePane::Articles => ActivePane::Feeds,
                     ActivePane::Preview => ActivePane::Articles,
                 };
+                if next == ActivePane::Preview {
+                    self.mark_read(true);
+                }
+                self.active_pane = next;
             }
 
             // Navigation
@@ -425,7 +447,10 @@ impl App {
                 self.preview_scroll = self.preview_scroll.saturating_sub(5);
             }
             KeyCode::Char('d') => {
-                self.preview_scroll = self.preview_scroll.saturating_add(5);
+                self.preview_scroll = self
+                    .preview_scroll
+                    .saturating_add(5)
+                    .min(self.preview_max_scroll());
             }
 
             _ => {}
@@ -549,7 +574,10 @@ impl App {
                 }
             }
             ActivePane::Preview => {
-                self.preview_scroll = self.preview_scroll.saturating_add(3);
+                self.preview_scroll = self
+                    .preview_scroll
+                    .saturating_add(3)
+                    .min(self.preview_max_scroll());
             }
         }
     }
