@@ -663,20 +663,24 @@ impl App {
     }
 
     /// Opens the selected article's URL in the system default browser.
-    fn open_in_browser(&self) {
+    ///
+    /// Uses the `open` crate which delegates to `xdg-open` on Linux, `open` on
+    /// macOS, and `start` on Windows — no platform-specific code required here.
+    fn open_in_browser(&mut self) {
         let Some(url) = self
             .feeds
             .get(self.selected_feed)
             .and_then(|f| f.articles.get(self.selected_article))
             .and_then(|a| a.link.as_deref())
+            .map(str::to_owned)
         else {
+            self.set_status("No link available for this article.", StatusLevel::Info);
             return;
         };
 
-        // xdg-open on Linux; open on macOS.
-        #[cfg(target_os = "linux")]
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-        #[cfg(target_os = "macos")]
-        let _ = std::process::Command::new("open").arg(url).spawn();
+        match open::that(&url) {
+            Ok(()) => self.set_status(&format!("Opened: {url}"), StatusLevel::Info),
+            Err(e) => self.set_status(&format!("Failed to open browser: {e}"), StatusLevel::Error),
+        }
     }
 }

@@ -7,6 +7,7 @@ description = "A terminal-based RSS feed reader built with ratatui."
 
 [dependencies]
 anyhow       = "1.0"
+open         = "5"
 chrono       = { version = "0.4",  features = ["serde"] }
 crossterm    = { version = "0.28", features = ["event-stream"] }
 dotenvy        = "0.15"
