@@ -7,7 +7,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppError;
+use crate::{error::AppError, markdown::html_to_markdown};
 
 /// A single article or entry fetched from an RSS or Atom feed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,10 +93,13 @@ pub async fn fetch_feed(url: &str, client: &reqwest::Client) -> Result<FeedData,
             let link = entry.links.into_iter().next().map(|l| l.href);
 
             // Prefer summary; fall back to the content body if present.
+            // Convert whatever HTML the feed provides to Markdown so the
+            // preview pane can render it with proper styling.
             let summary = entry
                 .summary
                 .map(|s| s.content)
                 .or_else(|| entry.content.and_then(|c| c.body))
+                .map(|raw| html_to_markdown(&raw))
                 .unwrap_or_default();
 
             Article {

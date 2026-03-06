@@ -285,48 +285,32 @@ fn render_preview_pane(app: &App, frame: &mut Frame<'_>, area: Rect) {
         return;
     };
 
-    // Build a rich `Text` with multiple styled lines.
-    let mut lines: Vec<Line<'_>> = Vec::new();
+    // Build a Markdown document that includes the article metadata as a
+    // header block, then appends the body (already Markdown from fetch time).
+    // Passing it all through render_markdown gives consistent styled output.
+    let mut md = String::new();
 
-    // Title (bold, wrapped)
-    lines.push(Line::from(Span::styled(
-        article.title.clone(),
-        Style::default()
-            .add_modifier(Modifier::BOLD)
-            .fg(Color::White),
-    )));
-    lines.push(Line::from(""));
+    // Escape the title so stray `*` or `_` characters don't break Markdown.
+    md.push_str(&format!("# {}\n\n", escape_md(&article.title)));
 
-    // Published date
     if let Some(dt) = article.published {
-        lines.push(Line::from(vec![
-            Span::styled("Published: ", Style::default().fg(Color::DarkGray)),
-            Span::raw(dt.format("%Y-%m-%d %H:%M UTC").to_string()),
-        ]));
+        md.push_str(&format!(
+            "**Published:** {}\n\n",
+            dt.format("%Y-%m-%d %H:%M UTC")
+        ));
     }
 
-    // Link
     if let Some(link) = &article.link {
-        lines.push(Line::from(vec![
-            Span::styled("Link: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(link.clone(), Style::default().fg(Color::Cyan)),
-        ]));
+        // Angle-bracket form renders as a plain URL without the full link
+        // parser firing, which avoids double-escaping problems.
+        md.push_str(&format!("**Link:** <{}>\n\n", link));
     }
 
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        "─".repeat(area.width.saturating_sub(2) as usize),
-        Style::default().fg(Color::DarkGray),
-    )));
-    lines.push(Line::from(""));
-
-    // Summary / body text — split on newlines so wrapping works per paragraph.
-    for para in article.summary.lines() {
-        lines.push(Line::from(para.to_string()));
-    }
+    md.push_str("---\n\n");
+    md.push_str(&article.summary);
 
     frame.render_widget(
-        Paragraph::new(Text::from(lines))
+        Paragraph::new(crate::markdown::render_markdown(&md))
             .block(block)
             .wrap(Wrap { trim: false })
             .scroll((app.preview_scroll, 0)),
@@ -490,4 +474,23 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(vertical[1])[1]
+}
+
+// ── Markdown helpers ──────────────────────────────────────────────────────────
+
+/// Escapes Markdown special characters in a plain-text string so they are not
+/// interpreted as Markdown syntax (e.g. `*` in a title starting a bold run).
+fn escape_md(text: &str) -> String {
+    // Characters that have special meaning at the start of a span or in inline
+    // positions.  We escape them with a backslash so pulldown-cmark treats them
+    // as literal characters.
+    const SPECIAL: &[char] = &['\\', '*', '_', '[', ']', '(', ')', '`', '#', '!', '~', '|'];
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        if SPECIAL.contains(&ch) {
+            out.push('\\');
+        }
+        out.push(ch);
+    }
+    out
 }

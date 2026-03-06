@@ -13,6 +13,7 @@
 mod app;
 mod error;
 mod feed;
+mod markdown;
 mod storage;
 mod ui;
 

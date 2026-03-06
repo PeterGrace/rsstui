@@ -9,9 +9,11 @@ description = "A terminal-based RSS feed reader built with ratatui."
 anyhow       = "1.0"
 chrono       = { version = "0.4",  features = ["serde"] }
 crossterm    = { version = "0.28", features = ["event-stream"] }
-dotenvy      = "0.15"
-feed-rs      = "2.2"
-futures      = "0.3"
+dotenvy        = "0.15"
+feed-rs        = "2.2"
+futures        = "0.3"
+htmd           = "0.1"
+pulldown-cmark = "0.9"
 ratatui      = "0.29"
 reqwest      = { version = "0.12", features = ["rustls-tls"], default-features = false }
 serde        = { version = "1.0",  features = ["derive"] }
