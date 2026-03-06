@@ -2,6 +2,8 @@
 
 A terminal-based RSS/Atom feed reader built with [ratatui](https://github.com/ratatui-org/ratatui) and [tokio](https://tokio.rs/).
 
+![rsstui screenshot](rsstui-screenshot.png)
+
 ```
 ┌─ Feeds ──────────────┬─ Articles ───────────────────────┬─ Preview ─────────────────────────────────────────┐
 │ Hacker News (12)     │ > Ask HN: Best Rust resources    │ Ask HN: Best Rust resources                       │
